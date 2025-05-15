@@ -1,14 +1,317 @@
+index:
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Simple Web App</title>
-    <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kanban Board - Task Management</title>
+<style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #e5e7eb;
+    color: #111827;
+    margin: 0;
+    padding: 20px;
+    user-select: none;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-weight: 700;
+    font-size: 2.5rem;
+    color: #2563eb;
+  }
+  .board {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    max-width: 960px;
+    margin: 0 auto 40px auto;
+  }
+  .column {
+    background: #f9fafb;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgb(0 0 0 / 0.1);
+    width: 300px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .column h2 {
+    background: #2563eb;
+    color: white;
+    padding: 16px;
+    margin: 0;
+    font-weight: 700;
+    border-radius: 12px 12px 0 0;
+    user-select: none;
+  }
+  .task-list {
+    flex-grow: 1;
+    padding: 10px 15px;
+    overflow-y: auto;
+  }
+  .task {
+    background: white;
+    margin: 10px 0;
+    padding: 14px 18px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.08);
+    cursor: grab;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: text;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .task:active {
+    cursor: grabbing;
+    transform: scale(1.03);
+    box-shadow: 0 5px 15px rgb(0 0 0 / 0.18);
+  }
+  .task:hover {
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.13);
+  }
+
+  .task-text {
+    flex-grow: 1;
+    margin-right: 10px;
+    word-break: break-word;
+    user-select: text;
+  }
+
+  button.action-btn {
+    border: none;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    user-select: none;
+  }
+
+  button.complete-btn {
+    background-color: #10b981;
+    color: white;
+  }
+  button.complete-btn:hover {
+    background-color: #059669;
+  }
+
+  button.reopen-btn {
+    background-color: #3b82f6;
+    color: white;
+  }
+  button.reopen-btn:hover {
+    background-color: #2563eb;
+  }
+
+  button.delete-btn {
+    background-color: #ef4444;
+    color: white;
+    margin-left: 8px;
+  }
+  button.delete-btn:hover {
+    background-color: #b91c1c;
+  }
+
+  #add-task-btn {
+    display: block;
+    margin: 0 auto;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    font-weight: 700;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgb(37 99 235 / 0.6);
+    transition: all 0.25s ease;
+  }
+  #add-task-btn:hover {
+    background-color: #1e40af;
+    box-shadow: 0 5px 20px rgb(30 64 175 / 0.8);
+  }
+
+  /* Scrollbar styling for task lists */
+  .task-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .task-list::-webkit-scrollbar-thumb {
+    background-color: #a5b4fc;
+    border-radius: 10px;
+  }
+</style>
 </head>
 <body>
-    <h1>Hello!</h1>
-    <p>This is our Simple Web App!</p>
-    <button onclick="showMessage()">Welcome!</button>
-    <script src="script.js"></script>
+  <h1>Task Management System</h1>
+  <div class="board">
+    <div class="column" id="todo">
+      <h2>To Do</h2>
+      <div class="task-list" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+    </div>
+    <div class="column" id="in-progress">
+      <h2>In Progress</h2>
+      <div class="task-list" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+    </div>
+    <div class="column" id="done">
+      <h2>Done</h2>
+      <div class="task-list" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+    </div>
+  </div>
+  <button id="add-task-btn" onclick="addTask()">+ Add Task</button>
+
+<script>
+document.addEventListener("DOMContentLoaded", loadTasks);
+
+function addTask() {
+  let taskText = prompt("What is your task?");
+  if (taskText && taskText.trim() !== "") {
+    let newTask = { text: taskText.trim(), status: "todo" };
+    let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    tasks.push(newTask);
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    loadTasks();
+  }
+}
+
+function saveTasks(tasks) {
+  localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+function loadTasks() {
+  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+  document.querySelectorAll(".task-list").forEach(list => list.innerHTML = "");
+  tasks.forEach(renderTask);
+}
+
+function renderTask(task) {
+  let taskElement = document.createElement("div");
+  taskElement.className = "task";
+  taskElement.setAttribute("draggable", true);
+  taskElement.ondragstart = drag;
+
+  // task text area, editable on click
+  let taskText = document.createElement("div");
+  taskText.className = "task-text";
+  taskText.textContent = task.text;
+  taskText.title = "Click task text to edit";
+  taskText.onclick = (e) => {
+    e.stopPropagation();
+    editTask(task);
+  };
+
+  // complete or reopen button
+  let actionButton = document.createElement("button");
+  if (task.status === "done") {
+    actionButton.className = "action-btn reopen-btn";
+    actionButton.textContent = "Reopen";
+    actionButton.title = "Reopen task (move to In Progress)";
+    actionButton.onclick = (e) => {
+      e.stopPropagation();
+      reopenTask(task);
+    };
+  } else {
+    actionButton.className = "action-btn complete-btn";
+    actionButton.textContent = "Complete";
+    actionButton.title = "Mark task as done";
+    actionButton.onclick = (e) => {
+      e.stopPropagation();
+      completeTask(task);
+    };
+  }
+
+  // delete button
+  let deleteButton = document.createElement("button");
+  deleteButton.className = "action-btn delete-btn";
+  deleteButton.textContent = "Delete";
+  deleteButton.title = "Delete task";
+  deleteButton.onclick = (e) => {
+    e.stopPropagation();
+    deleteTask(task);
+  };
+
+  taskElement.appendChild(taskText);
+  taskElement.appendChild(actionButton);
+  taskElement.appendChild(deleteButton);
+
+  document.getElementById(task.status).querySelector(".task-list").appendChild(taskElement);
+}
+
+function editTask(task) {
+  let newText = prompt("Edit task:", task.text);
+  if (newText && newText.trim() !== "" && newText.trim() !== task.text) {
+    let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    tasks = tasks.map(t => t.text === task.text ? {...t, text: newText.trim() } : t);
+    saveTasks(tasks);
+    loadTasks();
+  }
+}
+
+function completeTask(task) {
+  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+  tasks = tasks.map(t => t.text === task.text ? {...t, status: "done" } : t);
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function reopenTask(task) {
+  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+  tasks = tasks.map(t => t.text === task.text ? {...t, status: "in-progress" } : t);
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function deleteTask(task) {
+  if (!confirm(`Are you sure you want to delete the task: "${task.text}"?`)) {
+    return;
+  }
+  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+  tasks = tasks.filter(t => t.text !== task.text);
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function allowDrop(event) {
+  event.preventDefault();
+}
+
+function drop(event) {
+  event.preventDefault();
+  let taskText = event.dataTransfer.getData("text");
+  let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+
+  let column = event.target.closest(".column");
+  if (!column) return;
+  let newStatus = column.id;
+
+  let taskFound = false;
+  tasks = tasks.map(t => {
+    if (t.text === taskText) {
+      taskFound = true;
+      return {...t, status: newStatus};
+    }
+    return t;
+  });
+
+  if (taskFound) {
+    saveTasks(tasks);
+    loadTasks();
+  }
+}
+
+function drag(event) {
+  // Only drag the task text
+  event.dataTransfer.setData("text", event.target.querySelector(".task-text").textContent);
+}
+</script>
 </body>
 </html>
+
